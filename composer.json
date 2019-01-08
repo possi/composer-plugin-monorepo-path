@@ -1,0 +1,32 @@
+{
+    "name": "meeva/composer-monorepo-builder-path-plugin",
+    "description": "composer plugin to install packages grouped via symplify/monorepo-builder as path-symlinks",
+    "license": "MIT",
+    "type": "composer-plugin",
+    "require": {
+        "composer-plugin-api": "^1.1"
+    },
+    "authors": [
+        {
+            "name": "Jascha Starke",
+            "email": "j.starke@meeva.de"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Meeva\\Monorepo\\": "src/"
+        }
+    },
+    "scripts": {
+        "fix-cs": [
+            "php vendor/friendsofphp/php-cs-fixer/php-cs-fixer fix -v --config=.php_cs.dist --path-mode=intersection ."
+        ]
+    },
+    "extra": {
+        "class": "Meeva\\Monorepo\\Plugin"
+    },
+    "require-dev": {
+        "composer/composer": "^1.6",
+        "friendsofphp/php-cs-fixer": "^2.10"
+    }
+}
