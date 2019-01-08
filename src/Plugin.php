@@ -12,7 +12,7 @@ class Plugin implements PluginInterface, Capable
 {
     public function activate(Composer $composer, IOInterface $io)
     {
-        $composer->getRepositoryManager()->addRepository(new Repository($io, Factory::createConfig(), $composer));
+        $composer->getRepositoryManager()->prependRepository(new Repository($io, Factory::createConfig(), $composer));
     }
 
     /**
