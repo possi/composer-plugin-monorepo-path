@@ -45,6 +45,8 @@ class Repository extends ArrayRepository
      */
     private $workdirConfig;
 
+    protected $enabled = true;
+
     /**
      * Initializes path repository.
      *
@@ -61,6 +63,27 @@ class Repository extends ArrayRepository
         parent::__construct();
     }
 
+    public function disable($disabled = true)
+    {
+        $this->enabled = !$disabled;
+
+        return $this;
+    }
+
+    public function isEnabled()
+    {
+        $skipForce = getenv('COMPOSER_MONOREPO');
+        if ('skip' === $skipForce) {
+            return false;
+        }
+
+        if ('force' === $skipForce) {
+            return true;
+        }
+
+        return $this->enabled;
+    }
+
     /**
      * Initializes path repository.
      *
@@ -69,6 +92,10 @@ class Repository extends ArrayRepository
     protected function initialize()
     {
         parent::initialize();
+
+        if (!$this->isEnabled()) {
+            return;
+        }
 
         foreach ($this->getUrlMatches() as $url) {
             $path             = realpath($url) . DIRECTORY_SEPARATOR;

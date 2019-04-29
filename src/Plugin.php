@@ -3,16 +3,41 @@
 namespace Meeva\Monorepo;
 
 use Composer\Composer;
+use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Factory;
 use Composer\IO\IOInterface;
 use Composer\Plugin\Capable;
+use Composer\Plugin\CommandEvent;
+use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 
-class Plugin implements PluginInterface, Capable
+class Plugin implements PluginInterface, Capable, EventSubscriberInterface
 {
+    /**
+     * @var Repository
+     */
+    private $repository;
+
     public function activate(Composer $composer, IOInterface $io)
     {
-        $composer->getRepositoryManager()->prependRepository(new Repository($io, Factory::createConfig(), $composer));
+        $this->repository = new Repository($io, Factory::createConfig(), $composer);
+        $composer->getRepositoryManager()->prependRepository($this->repository);
+    }
+
+    public static function getSubscribedEvents()
+    {
+        return [
+            PluginEvents::COMMAND => [
+                ['onCommand', 0],
+            ],
+        ];
+    }
+
+    public function onCommand(CommandEvent $event)
+    {
+        if ($event->getInput()->hasOption('no-dev') && $event->getInput()->getOption('no-dev')) {
+            $this->repository->disable();
+        }
     }
 
     /**

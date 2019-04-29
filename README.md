@@ -27,6 +27,14 @@ That's all. Nothing to configure. It detects your monorepo_dir by traversing up 
 
 Now if you do `composer require monorepo/subproject1` within the path `monorepo_dir/projects/example1` it should use a path-symlink to install the dependency to `monorepo_dir/projects/example1/vendor`.
 
+#### Deployment
+
+Assuming you're gonna build a deploy version of your Project, this plugin is disabled if you're using `--no-dev`.
+
+Also you can use the environment-variable `COMPOSER_MONOREPO` with one of these values:
+ * `force` -> enable, even if `--no-dev` is present
+ * `skip` -> disabled
+ * _anything else_ (default) -> enabled, `unless --no-dev` is present
 
 ### Known Caveats
 
