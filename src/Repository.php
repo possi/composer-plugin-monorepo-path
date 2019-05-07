@@ -45,6 +45,8 @@ class Repository extends ArrayRepository
      */
     private $workdirConfig;
 
+    private $rootDir = false;
+
     protected $enabled = true;
 
     /**
@@ -84,6 +86,42 @@ class Repository extends ArrayRepository
         return $this->enabled;
     }
 
+    protected function describePackage($dir)
+    {
+        $path             = realpath($dir) . DIRECTORY_SEPARATOR;
+        $composerFilePath = $path . 'composer.json';
+        $json             = file_get_contents($composerFilePath);
+        $package          = JsonFile::parseJson($json, $composerFilePath);
+        $package['dist']  = array(
+            'type'      => 'path',
+            'url'       => $dir,
+            'reference' => sha1($json . serialize($this->options)),
+        );
+        $package['transport-options'] = $this->options;
+
+        if (!isset($package['version']) && ($rootVersion = getenv('COMPOSER_ROOT_VERSION'))) {
+            if (
+                0 === $this->process->execute('git rev-parse HEAD', $ref1, $path)
+                && 0 === $this->process->execute('git rev-parse HEAD', $ref2)
+                && $ref1 === $ref2
+            ) {
+                $package['version'] = $rootVersion;
+            }
+        }
+
+        if (!isset($package['version'])) {
+            $versionData        = $this->versionGuesser->guessVersion($package, $path);
+            $package['version'] = $versionData['version'] ?: 'dev-master';
+        }
+
+        $output = '';
+        if (is_dir($path . DIRECTORY_SEPARATOR . '.git') && 0 === $this->process->execute('git log -n1 --pretty=%H', $output, $path)) {
+            $package['dist']['reference'] = trim($output);
+        }
+
+        return $package;
+    }
+
     /**
      * Initializes path repository.
      *
@@ -97,45 +135,20 @@ class Repository extends ArrayRepository
             return;
         }
 
-        foreach ($this->getUrlMatches() as $url) {
-            $path             = realpath($url) . DIRECTORY_SEPARATOR;
-            $composerFilePath = $path . 'composer.json';
+        if ($rootDir = $this->getMonorepoRootDir()) {
+            foreach ($this->getUrlMatches() as $url) {
+                $package     = $this->describePackage($url);
+                $packageData = $this->loader->load($package);
+                $this->addPackage($packageData);
 
-            if (!file_exists($composerFilePath)) {
-                continue;
-            }
-
-            $json            = file_get_contents($composerFilePath);
-            $package         = JsonFile::parseJson($json, $composerFilePath);
-            $package['dist'] = array(
-                'type'      => 'path',
-                'url'       => $url,
-                'reference' => sha1($json . serialize($this->options)),
-            );
-            $package['transport-options'] = $this->options;
-
-            // carry over the root package version if this path repo is in the same git repository as root package
-            if (!isset($package['version']) && ($rootVersion = getenv('COMPOSER_ROOT_VERSION'))) {
-                if (
-                    0 === $this->process->execute('git rev-parse HEAD', $ref1, $path)
-                    && 0 === $this->process->execute('git rev-parse HEAD', $ref2)
-                    && $ref1 === $ref2
-                ) {
-                    $package['version'] = $rootVersion;
+                if ('dev-master' !== $package['version']) {
+                    // Always Symlink dev-master, independent of current branch
+                    $package['version'] = 'dev-master';
+                    unset($package['dist']['reference']);
+                    $packageData = $this->loader->load($package);
+                    $this->addPackage($packageData);
                 }
             }
-
-            if (!isset($package['version'])) {
-                $versionData        = $this->versionGuesser->guessVersion($package, $path);
-                $package['version'] = $versionData['version'] ?: 'dev-master';
-            }
-
-            $output = '';
-            if (is_dir($path . DIRECTORY_SEPARATOR . '.git') && 0 === $this->process->execute('git log -n1 --pretty=%H', $output, $path)) {
-                $package['dist']['reference'] = trim($output);
-            }
-            $package = $this->loader->load($package);
-            $this->addPackage($package);
         }
     }
 
@@ -146,30 +159,46 @@ class Repository extends ArrayRepository
     }
 
     /**
+     * @return string|null Null if not part of a monorepo
+     */
+    public function getMonorepoRootDir()
+    {
+        if (false === $this->rootDir) {
+            $this->rootDir = null;
+            $parentPath    = $this->getCurrentProjectDir();
+            while (($path = dirname($parentPath)) !== $parentPath) {
+                if (file_exists($path . DIRECTORY_SEPARATOR . 'composer.json')) {
+                    $this->rootDir = $path;
+                    break;
+                }
+                $parentPath = $path;
+            }
+        }
+
+        return $this->rootDir;
+    }
+
+    /**
      * Get a list of all (possibly relative) path names matching given url (supports globbing).
      *
      * @return \Generator|string[]
      */
     private function getUrlMatches()
     {
-        $finder     = new Finder();
-        $parentPath = $this->getCurrentProjectDir();
-        while (($path = dirname($parentPath)) !== $parentPath) {
-            if (file_exists($path . DIRECTORY_SEPARATOR . 'composer.json')) {
-                // TODO: Performance Optimieren
-                $projects = $finder
-                    ->depth('< 8')
-                    ->notPath('vendor')
-                    ->in($path)
-                    ->files()->name('composer.json');
+        if ($path = $this->getMonorepoRootDir()) {
+            $finder = new Finder();
+            // TODO: Performance Optimieren
+            $projects = $finder
+                ->depth('> 1')
+                ->depth('< 8')
+                ->notPath('vendor')
+                ->in($path)
+                ->files()->name('composer.json');
 
-                foreach ($projects as $composerFile) {
-                    /* @var $composerFile \SplFileInfo */
-                    yield $composerFile->getPath();
-                }
-                break;
+            foreach ($projects as $composerFile) {
+                /* @var $composerFile \SplFileInfo */
+                yield $composerFile->getPath();
             }
-            $parentPath = $path;
         }
     }
 }
