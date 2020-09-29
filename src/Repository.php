@@ -111,7 +111,7 @@ class Repository extends ArrayRepository
 
         if (!isset($package['version'])) {
             $versionData        = $this->versionGuesser->guessVersion($package, $path);
-            $package['version'] = $versionData['version'] ?: 'dev-master';
+            $package['version'] = $versionData['version'] ?? 'dev-master';
         }
 
         $output = '';
