@@ -4,7 +4,7 @@
     "license": "MIT",
     "type": "composer-plugin",
     "require": {
-        "composer-plugin-api": "^1.1",
+        "composer-plugin-api": "^2.0",
         "php": ">=7"
     },
     "authors": [
@@ -24,10 +24,13 @@
         ]
     },
     "extra": {
-        "class": "Meeva\\Monorepo\\Plugin"
+        "class": "Meeva\\Monorepo\\Plugin",
+        "branch-alias": {
+            "dev-master": "2.0.x-dev"
+        }
     },
     "require-dev": {
-        "composer/composer": "^1.6",
+        "composer/composer": "^2.0",
         "friendsofphp/php-cs-fixer": "^2.10"
     }
 }

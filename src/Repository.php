@@ -51,9 +51,6 @@ class Repository extends ArrayRepository
 
     /**
      * Initializes path repository.
-     *
-     * @param IOInterface $io
-     * @param Config      $config
      */
     public function __construct(IOInterface $io, Config $config, Composer $composer)
     {
@@ -92,11 +89,11 @@ class Repository extends ArrayRepository
         $composerFilePath = $path . 'composer.json';
         $json             = file_get_contents($composerFilePath);
         $package          = JsonFile::parseJson($json, $composerFilePath);
-        $package['dist']  = array(
+        $package['dist']  = [
             'type'      => 'path',
             'url'       => $dir,
             'reference' => sha1($json . serialize($this->options)),
-        );
+        ];
         $package['transport-options'] = $this->options;
 
         if (!isset($package['version']) && ($rootVersion = getenv('COMPOSER_ROOT_VERSION'))) {
