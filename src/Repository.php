@@ -55,7 +55,7 @@ class Repository extends ArrayRepository
     public function __construct(IOInterface $io, Config $config, Composer $composer)
     {
         $this->loader         = new ArrayLoader(null, true);
-        $this->process        = new ProcessExecutor($io);
+        $this->process        = $composer->getLoop()->getProcessExecutor() ?: new ProcessExecutor($io);
         $this->versionGuesser = new VersionGuesser($config, $this->process, new VersionParser());
         $this->config         = $config;
 
