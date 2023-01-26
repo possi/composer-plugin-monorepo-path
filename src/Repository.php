@@ -49,6 +49,8 @@ class Repository extends ArrayRepository
 
     protected $enabled = true;
 
+    private $currentProjectDir = '';
+
     /**
      * Initializes path repository.
      */
@@ -83,9 +85,48 @@ class Repository extends ArrayRepository
         return $this->enabled;
     }
 
+    public function getRelativePath($from, $to)
+    {
+        // some compatibility fixes for Windows paths
+        $from = is_dir($from) ? rtrim($from, '\/') . '/' : $from;
+        $to   = is_dir($to) ? rtrim($to, '\/') . '/' : $to;
+        $from = str_replace('\\', '/', $from);
+        $to   = str_replace('\\', '/', $to);
+
+        $from    = explode('/', $from);
+        $to      = explode('/', $to);
+        $relPath = $to;
+
+        foreach ($from as $depth => $dir) {
+            // find first non-matching dir
+            if ($dir === $to[$depth]) {
+                // ignore this directory
+                array_shift($relPath);
+            } else {
+                // get number of remaining dirs to $from
+                $remaining = count($from) - $depth;
+                if ($remaining > 1) {
+                    // add traversals up to first matching dir
+                    $padLength = (count($relPath) + $remaining - 1) * -1;
+                    $relPath   = array_pad($relPath, $padLength, '..');
+                    break;
+                } else {
+                    $relPath[0] = './' . $relPath[0];
+                }
+            }
+        }
+
+        return implode('/', $relPath);
+    }
+
     protected function describePackage($dir)
     {
-        $path             = realpath($dir) . DIRECTORY_SEPARATOR;
+        $dir = $this->getRelativePath($this->currentProjectDir, $dir);
+        if ('' === $dir) {
+            $dir = './';
+        }
+        $path = realpath($dir) . DIRECTORY_SEPARATOR;
+
         $composerFilePath = $path . 'composer.json';
         $json             = file_get_contents($composerFilePath);
         $package          = JsonFile::parseJson($json, $composerFilePath);
@@ -133,6 +174,8 @@ class Repository extends ArrayRepository
         }
 
         if ($rootDir = $this->getMonorepoRootDir()) {
+            $this->currentProjectDir = $this->getCurrentProjectDir();
+
             foreach ($this->getUrlMatches() as $url) {
                 $package     = $this->describePackage($url);
                 $packageData = $this->loader->load($package);
